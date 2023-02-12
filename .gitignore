@@ -1,0 +1,33 @@
+# python
+venv/
+__pycache__
+.DS_Store
+.pytest_cache/
+tests/__pycache__/
+
+# ide
+.idea
+.vscode
+
+# airflow
+airflow.cfg
+airflow.db
+unittests.cfg
+airflow-webserver.pid
+webserver_config.py
+
+# data
+*.json
+*.xlsx
+*.csv
+
+# local setup
+pip.conf
+
+#.txt
+*.txt
+!requirements.txt
+
+#
+aws
+.aws
