@@ -1,6 +1,7 @@
 version: '3.8'
 
-x-common: &common
+# Define common configuration for Airflow containers
+x-airflow: &airflow
   build:
     context: .
   user: "${AIRFLOW_UID}:0"
@@ -10,63 +11,70 @@ x-common: &common
     - .env
   volumes:
     - ./dags:/opt/airflow/dags
-    - ./common:/opt/airflow/common
+    - ./utils:/opt/airflow/utils
 
-x-depends-on: &depends-on
+# Define common dependencies for Airflow containers
+x-airflow-deps: &airflow-deps
   depends_on:
     postgres:
       condition: service_healthy
     airflow-init:
       condition: service_completed_successfully
 
+# Define services (containers)
 services:
+  # PostgresSQL database container
   postgres:
     image: postgres:13
     container_name: postgres
     ports:
-      - "6432:5432"
+      - "${POSTGRES_PORT}:5432"
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "airflow"]
+      test: [ "CMD", "pg_isready", "-U", "airflow" ]
       interval: 5s
+      timeout: 5s
       retries: 5
-    env_file:
-      - .env
+    env_file: .env
     volumes:
-      - postgres-airflow:/var/lib/postgresql/data
+      - postgres:/var/lib/postgresql/data
 
-  scheduler:
-    <<: *common
-    <<: *depends-on
+  # Airflow scheduler container
+  airflow-scheduler:
+    <<: *airflow
+    <<: *airflow-deps
     container_name: airflow-scheduler
     command: scheduler
     restart: on-failure
     ports:
-      - "8793:8793"
+      - "${SCHEDULER_PORT}:8793"
 
-  webserver:
-    <<: *common
-    <<: *depends-on
+  # Airflow webserver container
+  airflow-webserver:
+    <<: *airflow
+    <<: *airflow-deps
     container_name: airflow-webserver
     restart: always
     command: webserver
     ports:
-      - "8080:8080"
+      - "${WEBSERVER_PORT}:8080"
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      test: [ "CMD", "curl", "--fail", "http://localhost:8080/health" ]
       interval: 15s
       timeout: 30s
       retries: 5
 
+  # Airflow initialization container
   airflow-init:
-    <<: *common
+    <<: *airflow
     container_name: airflow-init
     entrypoint: /bin/bash
     command:
       - -c
       - |
-        mkdir -p /sources/logs /sources/dags /sources/common
-        chown -R "${AIRFLOW_UID}:0" /sources/{logs, dags, common}
+        # Create necessary directories and set permissions
+        mkdir -p /sources/logs /sources/dags /sources/utils
+        chown -R "${AIRFLOW_UID}:0" /sources/{logs, dags, utils}
         exec /entrypoint airflow version
 
 volumes:
-  postgres-airflow:
+  postgres:
